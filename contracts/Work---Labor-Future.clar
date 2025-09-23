@@ -37,19 +37,20 @@
 )
 
 (define-map work-contracts
-    { work-id: uint }
-    {
-        client: principal,
-        worker: principal,
-        amount: uint,
-        description: (string-ascii 500),
-        status: (string-ascii 20),
-        created-at: uint,
-        completed-at: (optional uint),
-        insurance-amount: uint,
-        platform-fee: uint
-    }
-)
+     { work-id: uint }
+     {
+         client: principal,
+         worker: principal,
+         amount: uint,
+         description: (string-ascii 500),
+         status: (string-ascii 20),
+         created-at: uint,
+         completed-at: (optional uint),
+         insurance-amount: uint,
+         platform-fee: uint,
+         rating: (optional uint)
+     }
+ )
 
 (define-map escrow-balances
     { work-id: uint }
@@ -153,7 +154,8 @@
                 created-at: stacks-block-height,
                 completed-at: none,
                 insurance-amount: insurance-amount,
-                platform-fee: platform-fee
+                platform-fee: platform-fee,
+                rating: none
             }
         )
         (map-set escrow-balances
@@ -212,19 +214,59 @@
 )
 
 (define-public (approve-work (work-id uint))
-    (let
-        (
-            (contract-data (unwrap! (map-get? work-contracts { work-id: work-id }) ERR_NOT_FOUND))
-        )
-        (asserts! (is-eq tx-sender (get client contract-data)) ERR_NOT_AUTHORIZED)
-        (asserts! (is-eq (get status contract-data) "completed") ERR_WORK_NOT_COMPLETED)
-        (map-set work-contracts
-            { work-id: work-id }
-            (merge contract-data { status: "approved" })
-        )
-        (ok true)
-    )
-)
+     (let
+         (
+             (contract-data (unwrap! (map-get? work-contracts { work-id: work-id }) ERR_NOT_FOUND))
+         )
+         (asserts! (is-eq tx-sender (get client contract-data)) ERR_NOT_AUTHORIZED)
+         (asserts! (is-eq (get status contract-data) "completed") ERR_WORK_NOT_COMPLETED)
+         (map-set work-contracts
+             { work-id: work-id }
+             (merge contract-data { status: "approved" })
+         )
+         (ok true)
+     )
+ )
+
+(define-public (rate-work (work-id uint) (rating uint))
+     (let
+         (
+             (contract-data (unwrap! (map-get? work-contracts { work-id: work-id }) ERR_NOT_FOUND))
+             (worker-data (unwrap! (map-get? workers { worker: (get worker contract-data) }) ERR_NOT_FOUND))
+         )
+         (asserts! (is-eq tx-sender (get client contract-data)) ERR_NOT_AUTHORIZED)
+         (asserts! (is-eq (get status contract-data) "approved") ERR_INVALID_STATUS)
+         (asserts! (is-none (get rating contract-data)) ERR_ALREADY_EXISTS)
+         (asserts! (and (>= rating u1) (<= rating u5)) ERR_INVALID_AMOUNT)
+         (map-set work-contracts
+             { work-id: work-id }
+             (merge contract-data { rating: (some rating) })
+         )
+         (let
+             (
+                 (rep-change (if (is-eq rating u5) u3
+                     (if (is-eq rating u4) u2
+                         (if (is-eq rating u3) u1
+                             (if (is-eq rating u2) u0
+                                 (if (is-eq rating u1) u99 u0)
+                             )
+                         )
+                     )
+                 ))
+                 (current-rep (get reputation-score worker-data))
+                 (new-rep (if (is-eq rep-change u99)
+                     (if (> current-rep u0) (- current-rep u1) u0)
+                     (+ current-rep rep-change)
+                 ))
+             )
+             (map-set workers
+                 { worker: (get worker contract-data) }
+                 (merge worker-data { reputation-score: (if (> new-rep u100) u100 new-rep) })
+             )
+         )
+         (ok true)
+     )
+ )
 
 (define-public (raise-dispute (work-id uint) (reason (string-ascii 500)))
     (let
