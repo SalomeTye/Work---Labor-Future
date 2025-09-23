@@ -1,5 +1,3 @@
-## 🎯 Overview
-
 A blockchain-powered platform that protects gig workers and freelancers from wage theft, unfair contracts, and lack of protections through smart contract automation.
 
 ## ✨ Key Features
@@ -141,3 +139,20 @@ MIT License - see LICENSE file for details
 ---
 
 Built with ❤️ for the future of work
+
+## 🆕 Recent Enhancements
+
+### Worker Profile Status Toggle 🔄
+Empowers registered workers to dynamically control their availability status on the platform. This feature allows workers to toggle between active and inactive states, providing greater flexibility in managing their professional engagement.
+
+**Usage for Workers:**
+4. **Toggle Availability Status**
+   ```clarity
+   (contract-call? .Work---Labor-Future toggle-worker-status)
+   ```
+
+**Benefits:**
+- Enhanced worker autonomy and control over availability
+- Improved client experience by filtering available workers
+- Streamlined platform operations with real-time status updates
+- Minimal gas costs for status changes

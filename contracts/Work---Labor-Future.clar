@@ -116,6 +116,19 @@
     )
 )
 
+(define-public (toggle-worker-status)
+    (let
+        (
+            (worker-data (unwrap! (map-get? workers { worker: tx-sender }) ERR_NOT_FOUND))
+        )
+        (map-set workers
+            { worker: tx-sender }
+            (merge worker-data { is-active: (not (get is-active worker-data)) })
+        )
+        (ok true)
+    )
+)
+
 (define-public (create-work-contract (worker principal) (amount uint) (description (string-ascii 500)))
     (let
         (
