@@ -78,6 +78,21 @@
     }
 )
 
+(define-map milestones
+    { work-id: uint, milestone-id: uint }
+    {
+        description: (string-ascii 200),
+        amount: uint,
+        status: (string-ascii 20),
+        completed-at: (optional uint)
+    }
+)
+
+(define-map milestone-counts
+    { work-id: uint }
+    { count: uint }
+)
+
 (define-public (register-worker)
     (let
         (
@@ -396,4 +411,81 @@
 
 (define-read-only (get-next-work-id)
     (var-get next-work-id)
+)
+
+(define-public (add-milestone (work-id uint) (description (string-ascii 200)) (amount uint))
+    (let
+        (
+            (contract-data (unwrap! (map-get? work-contracts { work-id: work-id }) ERR_NOT_FOUND))
+            (current-count (default-to u0 (get count (map-get? milestone-counts { work-id: work-id }))))
+            (new-milestone-id (+ current-count u1))
+        )
+        (asserts! (is-eq tx-sender (get client contract-data)) ERR_NOT_AUTHORIZED)
+        (asserts! (is-eq (get status contract-data) "active") ERR_INVALID_STATUS)
+        (asserts! (> amount u0) ERR_INVALID_AMOUNT)
+        (map-set milestones
+            { work-id: work-id, milestone-id: new-milestone-id }
+            {
+                description: description,
+                amount: amount,
+                status: "pending",
+                completed-at: none
+            }
+        )
+        (map-set milestone-counts
+            { work-id: work-id }
+            { count: new-milestone-id }
+        )
+        (ok new-milestone-id)
+    )
+)
+
+(define-public (complete-milestone (work-id uint) (milestone-id uint))
+    (let
+        (
+            (contract-data (unwrap! (map-get? work-contracts { work-id: work-id }) ERR_NOT_FOUND))
+            (milestone-data (unwrap! (map-get? milestones { work-id: work-id, milestone-id: milestone-id }) ERR_NOT_FOUND))
+            (escrow-data (unwrap! (map-get? escrow-balances { work-id: work-id }) ERR_NOT_FOUND))
+        )
+        (asserts! (is-eq tx-sender (get worker contract-data)) ERR_NOT_AUTHORIZED)
+        (asserts! (is-eq (get status milestone-data) "pending") ERR_INVALID_STATUS)
+        (asserts! (>= (get amount escrow-data) (get amount milestone-data)) ERR_INSUFFICIENT_BALANCE)
+        (map-set milestones
+            { work-id: work-id, milestone-id: milestone-id }
+            (merge milestone-data {
+                status: "completed",
+                completed-at: (some stacks-block-height)
+            })
+        )
+        (try! (as-contract (stx-transfer? (get amount milestone-data) tx-sender (get worker contract-data))))
+        (map-set escrow-balances
+            { work-id: work-id }
+            { amount: (- (get amount escrow-data) (get amount milestone-data)) }
+        )
+        (ok true)
+    )
+)
+
+(define-public (approve-milestone (work-id uint) (milestone-id uint))
+    (let
+        (
+            (contract-data (unwrap! (map-get? work-contracts { work-id: work-id }) ERR_NOT_FOUND))
+            (milestone-data (unwrap! (map-get? milestones { work-id: work-id, milestone-id: milestone-id }) ERR_NOT_FOUND))
+        )
+        (asserts! (is-eq tx-sender (get client contract-data)) ERR_NOT_AUTHORIZED)
+        (asserts! (is-eq (get status milestone-data) "completed") ERR_WORK_NOT_COMPLETED)
+        (map-set milestones
+            { work-id: work-id, milestone-id: milestone-id }
+            (merge milestone-data { status: "approved" })
+        )
+        (ok true)
+    )
+)
+
+(define-read-only (get-milestone (work-id uint) (milestone-id uint))
+    (map-get? milestones { work-id: work-id, milestone-id: milestone-id })
+)
+
+(define-read-only (get-milestone-count (work-id uint))
+    (map-get? milestone-counts { work-id: work-id })
 )
