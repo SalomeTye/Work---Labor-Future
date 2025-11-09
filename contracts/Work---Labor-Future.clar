@@ -7,8 +7,10 @@
 (define-constant ERR_WORK_ALREADY_COMPLETED (err u106))
 (define-constant ERR_DISPUTE_EXISTS (err u107))
 (define-constant ERR_INVALID_STATUS (err u108))
+(define-constant ERR_CONTRACT_CANCELLED (err u109))
 
 (define-constant CONTRACT_OWNER tx-sender)
+(define-constant CANCELLATION_FEE_RATE u10)
 (define-constant INSURANCE_RATE u5)
 (define-constant PLATFORM_FEE_RATE u2)
 
@@ -488,4 +490,31 @@
 
 (define-read-only (get-milestone-count (work-id uint))
     (map-get? milestone-counts { work-id: work-id })
+)
+
+(define-public (cancel-work-contract (work-id uint))
+    (let
+        (
+            (contract-data (unwrap! (map-get? work-contracts { work-id: work-id }) ERR_NOT_FOUND))
+            (escrow-data (unwrap! (map-get? escrow-balances { work-id: work-id }) ERR_NOT_FOUND))
+            (client-data (unwrap! (map-get? clients { client: (get client contract-data) }) ERR_NOT_FOUND))
+            (cancellation-fee (/ (* (get amount contract-data) CANCELLATION_FEE_RATE) u100))
+            (refund-amount (- (get amount escrow-data) cancellation-fee))
+        )
+        (asserts! (is-eq tx-sender (get client contract-data)) ERR_NOT_AUTHORIZED)
+        (asserts! (is-eq (get status contract-data) "active") ERR_INVALID_STATUS)
+        (asserts! (is-none (map-get? disputes { work-id: work-id })) ERR_DISPUTE_EXISTS)
+        (try! (as-contract (stx-transfer? refund-amount tx-sender (get client contract-data))))
+        (try! (as-contract (stx-transfer? cancellation-fee tx-sender CONTRACT_OWNER)))
+        (map-set work-contracts
+            { work-id: work-id }
+            (merge contract-data { status: "cancelled" })
+        )
+        (map-set clients
+            { client: (get client contract-data) }
+            (merge client-data { active-contracts: (- (get active-contracts client-data) u1) })
+        )
+        (map-delete escrow-balances { work-id: work-id })
+        (ok true)
+    )
 )

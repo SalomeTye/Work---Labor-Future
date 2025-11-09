@@ -184,3 +184,20 @@ Revolutionizes project management by enabling phased payment structures that ali
 - Enhanced project transparency and accountability
 - Flexible payment structures for complex, multi-stage projects
 - Improved cash flow management for both clients and workers
+
+### Contract Cancellation Mechanism 🛑
+Introduces a flexible exit strategy for clients, enabling them to terminate active contracts before completion while maintaining platform integrity. This feature provides clients with the autonomy to cancel engagements that no longer align with their needs, with a structured penalty system that protects worker interests and platform sustainability.
+
+**Usage for Clients:**
+6. **Cancel Active Contract**
+   ```clarity
+   (contract-call? .Work---Labor-Future cancel-work-contract u1)
+   ```
+
+**Benefits:**
+- Empowers clients with decision-making flexibility during project lifecycles
+- Implements fair penalty structure (10% cancellation fee) to discourage frivolous terminations
+- Protects worker expectations by preventing arbitrary contract abandonment
+- Maintains escrow security with controlled fund release mechanisms
+- Enhances platform trust through transparent cancellation protocols
+- Reduces administrative overhead by automating contract termination processes
