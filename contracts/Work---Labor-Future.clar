@@ -518,3 +518,45 @@
         (ok true)
     )
 )
+
+(define-public (clone-contract (original-work-id uint))
+   (let
+       (
+           (original-contract (unwrap! (map-get? work-contracts { work-id: original-work-id }) ERR_NOT_FOUND))
+           (new-work-id (var-get next-work-id))
+           (insurance-amount (/ (* (get amount original-contract) INSURANCE_RATE) u100))
+           (platform-fee (/ (* (get amount original-contract) PLATFORM_FEE_RATE) u100))
+           (total-required (+ (get amount original-contract) (+ insurance-amount platform-fee)))
+           (client-data (unwrap! (map-get? clients { client: tx-sender }) ERR_NOT_FOUND))
+       )
+       (asserts! (is-eq tx-sender (get client original-contract)) ERR_NOT_AUTHORIZED)
+       (asserts! (is-eq (get status original-contract) "approved") ERR_INVALID_STATUS)
+       (try! (stx-transfer? total-required tx-sender (as-contract tx-sender)))
+       (map-set work-contracts
+           { work-id: new-work-id }
+           {
+               client: tx-sender,
+               worker: (get worker original-contract),
+               amount: (get amount original-contract),
+               description: (get description original-contract),
+               status: "active",
+               created-at: stacks-block-height,
+               completed-at: none,
+               insurance-amount: insurance-amount,
+               platform-fee: platform-fee,
+               rating: none
+           }
+       )
+       (map-set escrow-balances
+           { work-id: new-work-id }
+           { amount: total-required }
+       )
+       (map-set clients
+           { client: tx-sender }
+           (merge client-data { active-contracts: (+ (get active-contracts client-data) u1) })
+       )
+       (var-set next-work-id (+ new-work-id u1))
+       (var-set total-insurance-fund (+ (var-get total-insurance-fund) insurance-amount))
+       (ok new-work-id)
+   )
+)

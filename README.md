@@ -201,3 +201,20 @@ Introduces a flexible exit strategy for clients, enabling them to terminate acti
 - Maintains escrow security with controlled fund release mechanisms
 - Enhances platform trust through transparent cancellation protocols
 - Reduces administrative overhead by automating contract termination processes
+
+### Contract Cloning 🔄
+Empowers clients to effortlessly duplicate approved contracts, enabling rapid creation of new work agreements with identical terms. This innovative feature streamlines the process for recurring or similar projects, eliminating repetitive data entry and minimizing potential errors in contract setup.
+
+**Usage for Clients:**
+7. **Clone Approved Contract**
+    ```clarity
+    (contract-call? .Work---Labor-Future clone-contract u1)
+    ```
+
+**Benefits:**
+- Accelerates contract creation for repetitive or similar work engagements
+- Ensures consistency in terms and conditions across multiple projects
+- Minimizes user input errors through automated data replication
+- Maintains full escrow protection and platform fee structures
+- Enhances client productivity with one-click contract generation
+- Preserves worker assignments and project specifications seamlessly
